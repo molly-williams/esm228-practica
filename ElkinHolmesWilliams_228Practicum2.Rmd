@@ -1,0 +1,311 @@
+---
+title: '228 Practicum 2: Measurement'
+author: "Molly Williams"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Monterey Bay Seafood Watch (SFW): Understanding Program Influence Across Targeted Sectors
+**According to their theory of change, the SFW prgram seeks to improve the sustainability of global fisheries and aquaculture operations by assigning ratings to these entities and promoting knowledge of them to businesses and consumers.**
+
+### We design sampling strategies for three of the measures used to determine the impact of the SFW program:
+1. Assess likelihood of changes in consumer behavior as a result of engagement with SFW guides
+2. Business engagement with program and effeciveness of business partnerships
+3. Changes in practices of fisheries, aquaculture operations, NGOs and/or governments that are given red ratings
+
+
+
+#### 0. Load required packages: 
+```{r}
+library(DeclareDesign)
+library(knitr)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(dplyr)
+library(kableExtra)
+library(tidyverse)
+
+```
+
+### Sampling strategies 
+
+#### 1. Assess likelihood of changes in consumer behavior as a result of engagement with SFW guides
+
+*Survey question*: How likely are you to make different seafood purchasing decisions based on your use of the SFW Guide? 
+a) Very Likely
+b) Likely
+c) Somewhat Likely
+d) Not at all likely
+
+*Target Population*: Seafood consumers who use the paper guides, the app, or the website to inform their purchasing decisions
+
+*Declaring the population:* According to the SFW website, they have distributed more than 57 million paper guides, and have logged over 1.8 million app downloads. They do not make publicly available the number of hits they get on their website. 
+
+*Challenge of drawing a representative sample*: Users may be more willing to complete a survey within the app or on the web platform with a popup than they are to complete a survey based on a link at the back of a paper guide. Even though there are more paper user guides distributed than app downloads, we expect more app users than paper guide users to respond to the survey, so we weight the two equally. 
+
+*Hypothetical population*:
+```{r}
+
+pop.vector <- c(57000000,1800000)
+# Given a certain sampling effort, how much certainty will we have in our total estimate? Should we sample more or sample less depending on the distribution? 
+
+set.seed(228)
+population <- declare_population(
+  platform = add_level(N=2,
+         baseline=c(0.5,0.5)), # We estimate that 50% of people who interact with SFW materials change behavior, no matter the platform
+  respondents = add_level(N=pop.vector),
+  e=rnorm(n=sum(pop.vector)), # 
+                      behavior=draw_ordered(baseline)) 
+)
+
+# Takes the mean of all the behavior values ; the mean response to the question (trying to get to the true value)
+
+my_estimand <- declare_estimands(mean(behavior),
+                                 label = "Ybar")
+
+my_estimand(population)
+
+
+```
+
+*Reporting probabilities and sampling procedures*: Cluster-based sampling across each platform with unequal effort according to potential sample size.
+```{r}
+
+# We expect 25% of paper guide users to respond to a survey vs. 75% of app/web users
+reporting <- declare_assignment(prob=c(0.25, 0.75),
+                  assignment_variable = "R")
+
+# Determine the number of surveys to administer based on a goal of collecting 1000 surveys
+# ALso look at the distribution of the data 
+sampling <- declare_sampling(strata=platform,
+               strata_n=c(2000, 666))
+
+```
+
+*Estimate declared population*: 
+```{r}
+
+strata_weighted_mean <- function(data){
+  data.frame(  
+  estimator_label = "strata_w_mean",
+  estimand_label = "Ybar",
+  n = nrow(data),
+  stringsAsFactors = FALSE,
+  
+  estimate = data %>% filter(R==1) %>%
+    group_by(platform) %>% 
+    summarise(mean=mean(behavior)) %>%
+    mutate(prop=pop.vector/sum(pop.vector)) %>%
+    mutate(sub.mean=mean*prop) %>% pull(sub.mean) %>% 
+    sum())
+}
+
+
+```
+
+*Create table for standard deviations*
+```{r}
+
+answer <- declare_estimator(
+  handler = tidy_estimator(strata_weighted_mean),
+  estimand = my_estimand)
+
+design <- population + my_estimand + reporting +
+          sampling + answer
+
+diagnosis <- diagnose_design(design, sims = 100)
+
+diagnosis$diagnosands_df[,c(4,5,12,14)] %>%
+  kable()
+
+# Mean estimate is 3.14; close to the true answer of 3.14
+# on average, you're going to be off by a quarter of an item (0.25; prob want to increase the sample size) - what is the amount of uncertainty that is acceptable for this item?
+# Does satisfaction change over time? How would this change the distribution of answers over time? With too much uncertainty, you won't be able to detect this change 
+
+
+
+```
+
+
+#### 2. Business engagement with program and effeciveness of business partnerships
+
+** might be better to develop questions around distinct possibilities; e.g. "did you hear about this at the zoo?" use draw binary for this 
+
+*Survey question*: Where did you acquire or hear about this guide?
+a) Zoo
+b) Museum
+c) Aquarium
+d) Other conservation partner organization
+e) Food retailer
+f) Restaurant
+g) Other food distributor
+
+*Target Population*: Seafood consumers who use the paper guides, the app, or the website to inform their purchasing decisions
+
+*Declaring the population:* According to the SFW website, they have distributed more than 57 million paper guides, and have logged over 1.8 million app downloads. They do not make publicly available the number of hits they get on their website, and they do not report the number of guides that are distributed or recommended by business partners (food retailers, restaurants, and conservation partners such as zoos, museums and aquariums).
+
+*Challenge of drawing a representative sample*: Users may be more willing to complete a survey within the app or on the web platform with a popup than they are to complete a survey based on a link at the back of a paper guide. Even though there are more paper user guides distributed than app downloads, we expect more app users than paper guide users to respond to the survey, so we weight the two equally. 
+
+*Hypothetical population*:
+```{r}
+
+set.seed(228)
+population_1 <- declare_population(
+  platform = add_level(N=2,
+         baseline=c(0.5,0.5)), # We estimate that 50% of people who interact with SFW materials change behavior, no matter the platform
+  respondents = add_level(N=c(57000000,1800000),
+                      behavior=draw_binary(baseline)) 
+)
+
+pop.vector_1 <- c(57000000,1800000)
+
+my_estimand_1 <- declare_estimands(mean(behavior),
+                                 label = "Ybar")
+
+# use draw discrete() or draw_categorical() used similarly as draw_binary() / draw_ordered()
+```
+
+*Reporting probabilities and sampling procedures*: Cluster-based sampling across each platform with unequal effort according to potential sample size.
+```{r}
+
+# We expect 25% of paper guide users to respond to a survey vs. 75% of app/web users
+reporting_1 <- declare_assignment(prob=c(0.25, 0.75),
+                  assignment_variable = "R")
+
+# Determine the number of surveys to administer based on a goal of collecting 1000 surveys
+sampling_1 <- declare_sampling(strata=platform,
+               strata_n=c(2000, 666))
+
+```
+
+*Estimate declared population*: 
+```{r}
+
+strata_weighted_mean_1 <- function(data){
+  data.frame(  
+  estimator_label = "strata_w_mean",
+  estimand_label = "Ybar",
+  n = nrow(data),
+  stringsAsFactors = FALSE,
+  
+  estimate = data %>% filter(R==1) %>%
+    group_by(platform) %>% 
+    summarise(mean=mean(behavior)) %>%
+    mutate(prop=pop.vector/sum(pop.vector)) %>%
+    mutate(sub.mean=mean*prop) %>% pull(sub.mean) %>% 
+    sum())
+}
+
+
+```
+
+*Create table for standard deviations*
+```{r}
+
+answer_1 <- declare_estimator(
+  handler = tidy_estimator(strata_weighted_mean_1),
+  estimand = my_estimand_1)
+
+design_1 <- population_1 + my_estimand_1 + reporting_1 +
+          sampling_1 + answer_1
+
+diagnosis_1 <- diagnose_design(design_1, sims = 100)
+
+diagnosis_1$diagnosands_df[,c(4,5,12,14)] %>%
+  kable()
+
+```
+
+
+
+
+#### 3. Changes in practices of fisheries, aquaculture operations, NGOs and/or governments that are given red or yellow ratings (using the West Coast guide as a case study)
+
+*Survey question*: After receiving a red rating and seeking advice from SFW, how likely is your organization/operation to make changes to your practices to improve sustainability?
+a) Very likely
+b) Likely
+c) Somewhat likely
+d) Not at all likely
+
+It would also be useful to include a line for a response about why they made the choice that they did, to help inform SFW about the potential roadblocks operations have to improving the sustainability of their practices.
+
+*Target Population*: Leaders of fisheries, aquaculture operations, NGOs and/or governments that are given red ratings
+
+*Declaring the population:* Currently, there are 21 operations with red ("avoid") ratings in the West Coast consumer guide. 
+
+*Challenge of drawing a representative sample*: Certain fisheries or operations may be more willing to respond to the survey if they are more willing to change their practices. We believe the red-rated fisheries are less likely to respond because they are largely international fisheries and may be less willing to provide information for several reasons.
+
+*Hypothetical population*:
+```{r}
+
+set.seed(228)
+population_2 <- declare_population(
+  rating = add_level(N=2,
+         baseline=c(0.25,0.5)), # We estimate that 25% of operations with yellow ratings and 50% of those with red ratings will seek to change their practices
+  operations = add_level(N=c(17,21),
+                      behavior=draw_binary(baseline)) 
+)
+
+pop.vector_2 <- c(17,21)
+
+my_estimand_2 <- declare_estimands(mean(behavior),
+                                 label = "Ybar")
+
+
+```
+
+*Reporting probabilities and sampling procedures*: Cluster-based sampling across each platform with unequal effort according to potential sample size.
+```{r}
+
+# We expect 75% of yellow-rated operations to respond to a survey vs. 50% of red-rated operations
+reporting_2 <- declare_assignment(prob=c(0.75, 0.5),
+                  assignment_variable = "R")
+
+# Determine the number of surveys to administer based on a goal of collecting 100 surveys
+sampling_2 <- declare_sampling(strata=rating,
+               strata_n=c(66, 100))
+
+```
+
+*Estimate declared population*: 
+```{r}
+
+strata_weighted_mean_2 <- function(data){
+  data.frame(  
+  estimator_label = "strata_w_mean",
+  estimand_label = "Ybar",
+  n = nrow(data),
+  stringsAsFactors = FALSE,
+  
+  estimate = data %>% filter(R==1) %>%
+    group_by(rating) %>% 
+    summarise(mean=mean(behavior)) %>%
+    mutate(prop=pop.vector/sum(pop.vector)) %>%
+    mutate(sub.mean=mean*prop) %>% pull(sub.mean) %>% 
+    sum())
+}
+
+
+```
+
+*Create table for standard deviations*
+```{r}
+
+answer_2 <- declare_estimator(
+  handler = tidy_estimator(strata_weighted_mean_2),
+  estimand = my_estimand_2)
+
+design_2 <- population_2 + my_estimand_2 + reporting_2 +
+          sampling_2 + answer_2
+
+diagnosis_2 <- diagnose_design(design_2, sims = 100)
+
+diagnosis$diagnosands_df[,c(4,5,12,14)] %>%
+  kable()
+
+```
+
