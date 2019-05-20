@@ -82,7 +82,7 @@ reporting <- declare_assignment(blocks=platform, block_prob=c(0.05, 0.1),
                   assignment_variable = "R")
 rep <- reporting(pop)
 
-# Determine the number of surveys to administer based on a goal of collecting 1000 surveys
+# Determine the number of surveys to administer based on a goal of collecting 1000 surveys, with 500 from each group
 sampling <- declare_sampling(strata=platform,
                strata_n=c(200, 100))
 
@@ -119,7 +119,7 @@ answer <- declare_estimator(
 design <- population + my_estimand + reporting +
           sampling + answer
 
-diagnosis <- diagnose_design(design, sims = 1000)
+diagnosis <- diagnose_design(design, sims = 100)
 
 diagnosis$diagnosands_df[,c(4,5,12,14)] %>%
   kable()
@@ -151,7 +151,7 @@ population2 <- declare_population(
          baseline2=c(0.8,0.2)), # We estimate that 80% of people who interact with SFW materials learned about the program from a conservation partner (zoos, aquariums, museums).
   respondents = add_level(N=pop.vector,
                           e=rnorm(n=sum(pop.vector)),
-                          behavior=draw_binary(baseline2))) # no breaks assigned here because we are using binary
+                          behavior2=draw_binary(baseline2))) # no breaks assigned here because we are using binary
 
 pop2 <- population2()
 table(pop2$behavior)
@@ -160,7 +160,7 @@ table(pop2$behavior)
 # 1 = No, did not hear about the program from a conservation partner
 
 
-my_estimand2 <- declare_estimands(mean(behavior),
+my_estimand2 <- declare_estimands(mean(behavior2),
                                  label = "Ybar")
 
 my_estimand2(pop2) # 0.77
@@ -173,11 +173,11 @@ my_estimand2(pop2) # 0.77
 ```{r}
 
 # We expect 5% of paper guide users to respond to a survey vs. 10% of app/web users
-reporting2 <- declare_assignment(prob=c(0.05, 0.1),
+reporting2 <- declare_assignment(blocks=platform2, block_prob=c(0.05, 0.1),
                   assignment_variable = "R")
 
 # Determine the number of surveys to administer based on a goal of collecting 1000 surveys
-sampling2 <- declare_sampling(strata=platform,
+sampling2 <- declare_sampling(strata=platform2,
                strata_n=c(200, 100))
 
 ```
@@ -194,8 +194,8 @@ strata_weighted_mean2 <- function(data){
   
   estimate = data %>% 
     filter(R==1) %>%
-    group_by(platform) %>% 
-    summarise(mean=mean(behavior)) %>%
+    group_by(platform2) %>% 
+    summarise(mean=mean(behavior2)) %>%
     mutate(prop=pop.vector/sum(pop.vector)) %>%
     mutate(sub.mean=mean*prop) %>% pull(sub.mean) %>% 
     sum())
@@ -214,43 +214,54 @@ answer2 <- declare_estimator(
 design2 <- population2 + my_estimand2 + reporting2 +
           sampling2 + answer2
 
-diagnosis_1 <- diagnose_design(design2, sims = 100) # fix this - why is it not connecting with the other design functions? 
+diagnosis2 <- diagnose_design(design2, sims = 100) 
 
-diagnosis_1$diagnosands_df[,c(4,5,12,14)] %>%
+diagnosis2$diagnosands_df[,c(4,5,12,14)] %>%
   kable()
+
+# estimate is 0.757; close to initial estimand of 0.774
 
 ```
 
 
 
-#### 3. According to the SFW theory of change, seafood production operations (e.g. fisheries, aquaculture operations, NGOs and/or governments) that receive a yellow or red rating will seek guidance from the program in order to improve their practices and subsequently their rating (using the West Coast guide as a case study) (#7 in measures list)
+#### 3. Will yellow- and red-rated operations approach SFW for guidance in order to improve their rating?
 
-*Survey question*: After receiving a red rating, what percentage of organization/operations will seek guidance from the Seafood Watch Program?
+According to the SFW theory of change, seafood production operations (e.g. fisheries, aquaculture operations, NGOs and/or governments) that receive a yellow or red rating will seek guidance from the program in order to improve their practices and subsequently their rating. However, SFW has expressed that potential roadblocks exist for operations to improve their ratings, and they have an active interest in understanding what these are and how they can be addressed. In this example we use the West Coast SFW guide as a case study for predicting operations' responses after they are given an unfavorable rating. (#7 in measures list) 
 
 
-It would also be useful to include a line for a response about why they made the choice that they did, to help inform SFW about the potential roadblocks operations have to improving the sustainability of their practices.
+*Survey question*: After receiving your rating, do you plan to seek guidance from SFW on how you can improve your rating? a) Yes
+b) No
 
-*Target Population*: Leaders of fisheries, aquaculture operations, NGOs and/or governments that are given red ratings
+*Target Population*: Leaders of fisheries, aquaculture operations, NGOs and/or governments that are given red or yellow ratings
 
-*Declaring the population:* Currently, there are 21 operations with red ("avoid") ratings in the West Coast consumer guide. 
+*Declaring the population:* The West coast SFW guide lists 17 yellow-rated ("good alternative", e.g. US wild oysters) and 21 red-rated ("avoid") fisheries (e.g. bluefin tuna), which each contain an unknown number of individual operations. We use a conservative estimate of 50 operations for each fishery to get a total of 850 yellow-rated and 1050 red-rated operations that can be surveyed.
 
-*Challenge of drawing a representative sample*: Certain fisheries or operations are more willing to reach out for assistance if they are more interested in changing their practices. Likely, the companies that do reach out will have a long term vision and intent for improving their rating and have evidence that it will help their business model.
+*Challenge of drawing a representative sample*: Certain fisheries or operations are more willing to reach out for assistance if they are more interested in changing their practices. Operations that received a yellow rating may be more likely to respond as they theoretically have less work to do to . THis may result in red-rated operations having a lower response rate overall. We assume that the companies that do reach out will have evidence or belief that improving their ratings will have a positive effect on their business outcomes and that retaining a red rating will result in negative business outcomes.
 
 *Hypothetical population*:
 ```{r}
 
+pop.vector3 <- c(850, 1050) # estimated number of yellow- and red-rated operations in the US West Coast Guide, respectively
+
 set.seed(228)
-population_2 <- declare_population(
+population3 <- declare_population(
   rating = add_level(N=2,
-         baseline=c(0.2,0.8)), # We estimate that 20% of operations with red ratings will approach SFW for guidance on how to change their practices
-  operations = add_level(N=c(17,21),
-                      behavior=draw_binary(baseline)) 
-)
+         baseline3=c(0.3,0.2)), # We estimate that 30% of operations with yellow ratings and 20% with red ratings will approach SFW for guidance on how to change their practices
+  operations = add_level(N=pop.vector3,
+                         e=rnorm(n=sum(pop.vector3)),
+                         behavior3=draw_binary(baseline3)))
 
-pop.vector_2 <- c(17,21)
+pop3 <- population3()
+table(pop3$behavior)
 
-my_estimand_2 <- declare_estimands(mean(behavior),
+# 0 = Will not come to SFW for guidance
+# 1 = Will come to SFW for guidance 
+
+my_estimand3 <- declare_estimands(mean(behavior3),
                                  label = "Ybar")
+
+my_estimand3(pop3) # 0.241
 
 
 ```
@@ -258,30 +269,31 @@ my_estimand_2 <- declare_estimands(mean(behavior),
 *Reporting probabilities and sampling procedures*: Cluster-based sampling across each platform with unequal effort according to potential sample size.
 ```{r}
 
-# We expect 75% of yellow-rated operations to respond to a survey vs. 50% of red-rated operations
-reporting_2 <- declare_assignment(prob=c(0.75, 0.5),
+# We expect 15% of yellow-rated operations to respond to a survey vs. 10% of red-rated operations
+reporting3 <- declare_assignment(blocks=rating, block_prob=c(0.15, 0.1),
                   assignment_variable = "R")
 
 # Determine the number of surveys to administer based on a goal of collecting 100 surveys
-sampling_2 <- declare_sampling(strata=rating,
-               strata_n=c(66, 100))
+sampling3 <- declare_sampling(strata=rating,
+               strata_n=c(100, 200))
 
 ```
 
 *Estimate declared population*: 
 ```{r}
 
-strata_weighted_mean_2 <- function(data){
+strata_weighted_mean3 <- function(data){
   data.frame(  
   estimator_label = "strata_w_mean",
   estimand_label = "Ybar",
   n = nrow(data),
   stringsAsFactors = FALSE,
   
-  estimate = data %>% filter(R==1) %>%
+  estimate = data %>% 
+    filter(R==1) %>%
     group_by(rating) %>% 
-    summarise(mean=mean(behavior)) %>%
-    mutate(prop=pop.vector/sum(pop.vector)) %>%
+    summarise(mean=mean(behavior3)) %>%
+    mutate(prop=pop.vector3/sum(pop.vector3)) %>%
     mutate(sub.mean=mean*prop) %>% pull(sub.mean) %>% 
     sum())
 }
@@ -292,16 +304,16 @@ strata_weighted_mean_2 <- function(data){
 *Create table for standard deviations*
 ```{r}
 
-answer_2 <- declare_estimator(
-  handler = tidy_estimator(strata_weighted_mean_2),
-  estimand = my_estimand_2)
+answer3 <- declare_estimator(
+  handler = tidy_estimator(strata_weighted_mean3),
+  estimand = my_estimand3)
 
-design_2 <- population_2 + my_estimand_2 + reporting_2 +
-          sampling_2 + answer_2
+design3 <- population3 + my_estimand3 + reporting3 +
+          sampling3 + answer3
 
-diagnosis_2 <- diagnose_design(design_2, sims = 100)
+diagnosis3 <- diagnose_design(design3, sims = 100)
 
-diagnosis$diagnosands_df[,c(4,5,12,14)] %>%
+diagnosis3$diagnosands_df[,c(4,5,12,14)] %>%
   kable()
 
 ```
