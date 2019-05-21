@@ -1,25 +1,32 @@
 ---
 title: '228 Practicum 2: Measurement'
-author: "Molly Williams"
-output: html_document
+author: "Danny Elkin, Eric Holmes, Molly Williams"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Monterey Bay Seafood Watch (SFW): Understanding Program Influence Across Targeted Sectors
-**According to their theory of change, the SFW prgram seeks to improve the sustainability of global fisheries and aquaculture operations by assigning ratings to these entities and promoting knowledge of them to businesses and consumers.**
+**Monterey Bay Seafood Watch (SFW): Understanding Program Influence Across Targeted Sectors**
 
-### We design sampling strategies for three of the measures used to determine the impact of the SFW program:
+*According to their theory of change, the SFW prgram seeks to improve the sustainability of global fisheries and aquaculture operations by assigning ratings to these entities and promoting knowledge of them to businesses and consumers.*
+
+
+
+**We design sampling strategies for three of the measures used to determine the impact of the SFW program:**
+
 1. Assess likelihood of changes in consumer behavior as a result of engagement with SFW guides
-2. Business engagement with program and effeciveness of business partnerships
-3. Changes in practices of fisheries, aquaculture operations, NGOs and/or governments that are given red ratings
+2. Determine level of engagement based on partnerships with conservation organizations
+3. Predict likelihood that fishery operations that are given yellow or red ratings will seek guidance from SFW 
 
 
 
-#### 0. Load required packages: 
-```{r}
+### 0. Load required packages: 
+```{r message=FALSE}
 library(DeclareDesign)
 library(knitr)
 library(ggplot2)
@@ -31,9 +38,11 @@ library(tidyverse)
 
 ```
 
-### Sampling strategies 
 
-#### 1. Assess likelihood of changes in consumer behavior as a result of engagement with SFW guides
+
+Sampling strategies 
+
+### 1. Assess likelihood of changes in consumer behavior as a result of engagement with SFW guides
 
 *Survey question*: How likely are you to make different seafood purchasing decisions based on your use of the SFW Guide? 
 a) Very Likely
@@ -47,7 +56,7 @@ d) Not at all likely
 
 *Challenge of drawing a representative sample*: Users may be more willing to complete a survey within the app or on the web platform with a popup than they are to complete a survey based on a link at the back of a paper guide. Even though there are more paper user guides distributed than app downloads, we expect more app users than paper guide users to respond to the survey, so we weight the two equally. 
 
-*Hypothetical population*:
+**Hypothetical population**:
 ```{r}
 pop.vector <- c(5700,180) # Number of paper guides distributed and app downloads, respectively, in tens of thousands 
 
@@ -74,6 +83,8 @@ my_estimand(pop)
 
 ```
 
+
+
 *Reporting probabilities and sampling procedures*: Cluster-based sampling across each platform with unequal effort according to potential sample size.
 ```{r}
 
@@ -87,6 +98,7 @@ sampling <- declare_sampling(strata=platform,
                strata_n=c(200, 100))
 
 ```
+
 
 *Estimate declared population*: 
 ```{r}
@@ -109,6 +121,7 @@ strata_weighted_mean <- function(data){
 
 ```
 
+
 *Create table for standard deviations*
 ```{r}
 
@@ -127,7 +140,8 @@ diagnosis$diagnosands_df[,c(4,5,12,14)] %>%
 ```
 
 
-#### 2. Partner engagement with program and effeciveness of conservation partnerships (#6 and #8 in measures)
+
+### 2. Determine level of engagement based on partnerships with conservation organizations (#6 and #8 in measures)
 
 *Survey question*: Did you acquire this guide/hear about it from a zoo, aquarium, or museum?
 a) Yes
@@ -225,7 +239,8 @@ diagnosis2$diagnosands_df[,c(4,5,12,14)] %>%
 
 
 
-#### 3. Will yellow- and red-rated operations approach SFW for guidance in order to improve their rating?
+
+### 3. Will yellow- and red-rated operations approach SFW for guidance in order to improve their rating?
 
 According to the SFW theory of change, seafood production operations (e.g. fisheries, aquaculture operations, NGOs and/or governments) that receive a yellow or red rating will seek guidance from the program in order to improve their practices and subsequently their rating. However, SFW has expressed that potential roadblocks exist for operations to improve their ratings, and they have an active interest in understanding what these are and how they can be addressed. In this example we use the West Coast SFW guide as a case study for predicting operations' responses after they are given an unfavorable rating. (#7 in measures list) 
 
