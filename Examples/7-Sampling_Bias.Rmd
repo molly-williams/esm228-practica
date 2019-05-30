@@ -1,0 +1,395 @@
+---
+title: "Session 7: Sampling Bias"
+subsubtitle: "ESM 228: Monitoring & Evaluation"
+author: "Mark Buntaine"
+output: beamer_presentation
+header-includes:
+- \usepackage{caption}
+- \captionsetup[figure]{labelformat=empty}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## Outline & Goals
+
+1. Simulation for statistical reasoning
+2. Samples vs. populations
+3. Sampling distributions
+    - realization vs. expectation
+    - standard deviation vs. standard error
+4. Sources of sampling bias
+    - sample / population mismatch
+    - response bias
+5. Declaring populations and sampling in code (R)
+
+
+## Simulation for statistical reasoning
+
+- One of the best ways to gain an intuition about populations, samples, bias, etc. is to simulate data and examine its properties
+  + By simulating data, you are also forced to be explicit about the assumptions in your measurement approach
+  + By working with simulated data, you also have the chance to try out different approach to analysis
+  + This is especially important with *prospective evaluations*, where designs are put forward to collect data before it is available
+  
+- We're going to simulate data and sampling designs in *R*.
+
+## R Preliminaries
+
+Make sure your R and RStudio are up-to-date. Then install the required packages.
+
+```{r install, echo=TRUE, eval=FALSE, warning=FALSE, message=FALSE}
+install.packages("DeclareDesign", "ggplot2")
+```
+
+Load the required packages.
+
+```{r load, echo=TRUE, message=FALSE}
+library(DeclareDesign)
+library(knitr)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(dplyr)
+library(kableExtra)
+```
+
+## Toy example w/ single item
+
+Carbon footprint of Santa Barbara county households:
+
+  - declare_population() allows you to declare the assumed characteristics of the population that you want to study.
+
+```{r sb-population, echo=TRUE, message=F, eval=TRUE, cache=TRUE}
+set.seed(228)
+population <- declare_population(
+  households = add_level(N=36000, 
+     tco2e=runif(n=N, min=5, max=120))
+)
+pop <- population()
+plot <- ggplot(pop, aes(x=tco2e)) + 
+  geom_histogram(color="black", fill="white")
+```
+
+## Toy example w/ single item
+
+```{r sb-population2, echo=FALSE, message=F, eval=TRUE}
+plot
+```
+
+## Drawing a sample
+
+```{r sb-sample, echo=TRUE, message=F, eval=TRUE}
+
+sam <- sample(1:36000,2000)
+plot2 <- ggplot(pop, aes(x=tco2e)) + 
+  geom_histogram(color="black", fill="white") +
+  geom_histogram(data=pop[sam,], fill = "black")
+```
+
+## Drawing a sample
+
+```{r sb-sample2, echo=FALSE, message=FALSE, fig.height=6}
+plot2
+```
+
+- We're hoping that the sample (black) can say something meaningful about the population (white)
+
+## Samples vs. populations
+
+- *Population*: the complete set of units about which we intend to draw inferences
+- *Sample*: the set of units that we are able to collect data about
+
+We work with samples because it is almost never feasible to collect data about all units of interest.
+
+We always evaluate our sampling design with reference to a population.
+
+## Realizations vs. expectations
+
+Let's say we're interested in the mean household carbon footprint in Santa Barbara:
+
+```{r mean-compare}
+mean(pop$tco2e)
+mean(pop[sam,"tco2e"])
+```
+
+Why do these quantities differ?
+
+## Realizations vs. expectations
+
+- Even when we draw a true representative sample, we can expect variation in the sample value across repeated draws.
+  + The uncertainty created by *sampling variation* influences the degree to which we can be certain about our conclusions.
+  + We typically want to choose sample sizes to keep sampling variation managable, given inferential goals.
+  
+- When you hear a polling result with a stated *margin of error*, that error is many comprised of expected sampling variation.
+
+- Let's see:
+
+## Sampling distribution
+
+- **Sampling distribution**: the distribution of sample values with a repeated draw of a given sampling frame.
+- **Sampling frame**: this procedure describing the sample to be drawn.
+
+```{r sam-dist, cache=TRUE}
+sims <- 1000
+store <- rep(NA, sims)
+for (i in 1:sims){
+  store[i] <- mean(pop[sample(1:36000,2000),"tco2e"])
+}
+```
+
+##Sampling distribution
+
+```{r plot-sam, echo=FALSE, message=FALSE, fig.height=3.5, warning=FALSE}
+sam.dist <- ggplot(data.frame(store), aes(x=store)) + 
+  geom_histogram(color="black", fill="white") +
+  xlab("Mean value of sample") + xlim(c(57,68)) +
+  annotate("text",-Inf,Inf,label="n=2000", hjust = 0, vjust = 1)
+sam.dist
+```
+
+```{r sam-summary}
+mean(store) #expected sample mean
+sd(store) #standard error
+```
+
+## Standard deviation vs. standard error
+
+```{r sd-vs-se}
+sd(pop[sam,"tco2e"]) #standard deviation of sample
+sd(store) #standard error of sample
+```
+
+- *Standard deviation* of a sample describes the variance in the data ($\sqrt{\frac{1}{n} \sum_{i=1}^n (y_i - \bar{y})^2}$)
+- *Standard error* of a sample describes the expected sampling variance based on the sampling frame over repeated draws
+
+## Standard error and sample size
+
+```{r increase-sam, echo=FALSE, cache=TRUE, fig.height=6, message=FALSE, warning=FALSE}
+sims <- 1000
+store2 <- rep(NA, sims)
+for (i in 1:sims){
+  store2[i] <- mean(pop[sample(1:36000,4000),"tco2e"])
+}
+
+sam.dist2 <- ggplot(data.frame(store2), aes(x=store2)) + 
+  geom_histogram(color="black", fill="white") +
+  xlab("Mean value of sample") + xlim(c(57,68)) +
+  annotate("text",-Inf,Inf,label="n=4000", hjust = 0, vjust = 1)
+
+grid.arrange(sam.dist,sam.dist2,ncol=1)
+```
+
+
+## Standard error and sample size
+
+```{r samp-dist-many, cache=TRUE, echo=FALSE}
+samps <- seq(from=250, to=10000, by=250)
+sims <- 1000
+store <- rep(NA, sims)
+se.store <- rep(NA, length(samps))
+
+for (j in 1:length(samps)){
+
+for (i in 1:sims){
+  store[i] <- mean(pop[sample(1:36000,samps[j]),"tco2e"])
+}
+  
+se.store[j] <- sd(store)
+
+}
+
+dta <- data.frame(samps,se.store) %>% mutate(before=ifelse((samps==2000 | samps==4000),1,0))
+
+ggplot(dta, aes(x=samps,y=se.store,color=before)) + geom_point(size=4) + xlab("Sample Size") + ylab("Standard Error of Sample") + theme(legend.position = "none")
+
+```
+
+## Sampling bias
+
+So far we've assumed that we can take a random ("representative") sample from the population and then examined the properties of those samples. In practice, it is often  difficult to take a random sample from our target population, which leads to sampling bias.
+
+- **Sampling bias** is the difference between the true value of the population parameter we are trying to discover and the *expected value* of that parameter based on the sampling procedure.
+    + Sampling bias is **not** the difference between the true value of the population parameter and the realized value in a sample.
+    + Sampling procedures that deviate from a random sample cause sampling bias.
+  
+- There are two main sources of sampling bias we will discuss:
+    + Population / sample mismatches
+    + Reporting bias
+
+
+## Population / Sample Mismatches
+
+- This occurs when your sampling frame does not match your target population. Some examples:
+
+Population      Sample        
+--------        -------------- 
+Likely voters   Voters with landline telephones              
+Water users     Single family households           
+Households      Households on main road
+Fishers         Commercial fishers who use certain port
+---------       --------------   
+
+- This matters when the outcome covaries with sample frame exclusion criteria
+
+
+## Mismatches: An Example
+
+![Main road bias](main_road.png)
+
+## Declaring a population: an example
+
+```{r declare-main_road}
+set.seed(228)
+population <- declare_population(
+  households = add_level(N=500, 
+     main=draw_binary(N=N, prob = 0.5),
+     satisfied=correlate(given = main, rho = 0.5,
+                         draw_binary, prob = 0.5)
+))
+pop <- population()
+
+kable(table(pop$main,pop$satisfied)) %>% 
+  add_header_above(c("main"=1,"satisfied"=2))
+```
+
+## Consequences of sampling procedures
+
+```{r conseq}
+mean(pop$satisfied) #target population parameter
+mean(pop %>% filter(main==1) %>% pull(satisfied))
+```
+
+The difference between these two values is **bias**, not sampling variability.
+
+- Look for any part of the population systematically excluded from the sample.
+- Change interpretation to match sample actually drawn.
+
+
+## Population / Sample Mismatches
+
+- Some examples:
+
+Population      Sample        
+--------        -------------- 
+Likely voters   Voters with landline telephones              
+Water users     Single family households           
+Households      Households on main road
+Fishers         Commercial fishers who use certain port
+---------       --------------   
+
+
+## Response bias
+
+**Response bias** is the difference between the true parameter of interest and the expected sample value of the parameter based on unequal probabilities of reporting.
+
+- Often times harder to address than sample-population mismatches
+- Can create large errors in measurement if not managed carefully
+
+Let's continue with the previous example and assume:
+
+1. We now take a random sample of all households by knocking on doors
+2. If you live on the main street the chance that you are home is 50%
+3. If you live on the side street the chance that you are home is 20%
+
+## Declaring response bias
+
+```{r diff-reporting, size="small"}
+
+reporting <- declare_assignment(blocks=main,
+                  assignment_variable = "R",
+                  block_prob=c(0.2,0.5)) 
+pop <- reporting(pop)
+kable(pop[1:6,])
+```
+
+## Declaring response bias
+
+```{r resp-tab}
+table(pop$main,pop$R)
+```
+
+## Examining sample characteristics
+
+```{r samp-character}
+
+sims <- 1000 #simulations
+sam.n <- 250 #attempted sample size
+
+store <- rep(NA, sims)
+for (i in 1:sims){
+  store[i] <- mean(pop[sample(1:500,sam.n),] %>%
+                     filter(R==1) %>%
+                     pull(satisfied))
+}
+
+summary(store)
+
+```
+
+## Response bias visualization
+
+```{r resp-viz, echo=FALSE}
+sam.dist <- ggplot(data.frame(store), aes(x=store)) + 
+  geom_histogram(color="black", fill="white") +
+  xlab("Mean value of sample") +
+  geom_vline(xintercept = mean(pop$satisfied), linetype="dashed", 
+                color = "blue", size=1.5)
+sam.dist
+```
+
+## Common sources of response bias
+
+- Difficulty of reaching certain groups given a sampling procedure
+- Convenience samples
+- Differential interest in participating
+- Different times of availability
+
+Remember both population-sample mismatches and sampling bias can be relevant at the same time
+
+
+## DeclareDesign()
+
+A flexible framework for making declarations about our population, samples, and diagnosing bias. Let's do what we just did entirely within the DeclareDesign() framework:
+
+```{r declare-pop}
+population <- declare_population(
+  households = add_level(N=500, 
+     main=draw_binary(N=N, prob = 0.5),
+     satisfied=correlate(given = main, rho = 0.5,
+                         draw_binary, prob = 0.5)
+))
+```
+
+## DeclareDesign()
+
+```{r declare-report}
+reporting <- declare_assignment(blocks=main,
+                  assignment_variable = "R",
+                  block_prob=c(0.2,0.5))
+
+sampling <- declare_sampling(n=250)
+
+my_estimand <- declare_estimands(mean(satisfied),
+                                 label = "Ybar")
+
+answer <- declare_estimator(satisfied ~ 1,
+                            subset = (R==1),
+                            model = lm_robust,
+                            label = "est.")
+
+```
+
+## DeclareDesign()
+
+```{r diagnosis}
+design <- population + reporting + sampling + 
+  my_estimand + answer
+diagnosis <- diagnose_design(design)
+
+diagnosis$diagnosands_df[,c(5,11,13,15)] %>%
+  kable()
+
+```
+
+

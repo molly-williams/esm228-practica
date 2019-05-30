@@ -1,0 +1,162 @@
+---
+title: "Session 9: Measurement Practicum Example"
+subsubtitle: "ESM 228: Monitoring & Evaluation"
+author: "Mark Buntaine"
+output: beamer_presentation
+header-includes:
+- \usepackage{caption}
+- \captionsetup[figure]{labelformat=empty}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r load, echo=FALSE}
+# Load the required packages
+library(DeclareDesign)
+library(knitr)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(dplyr)
+library(kableExtra)
+```
+
+## Manta Trust: Theory of Change
+
+![](figures/mobulid_rays.png)
+
+## Oceanic Manta Ray
+
+![](figures/manta_oceanic.png)
+
+## Conservation Strategies
+
+![](figures/safe_release.png)
+
+## Fish Landings in the Phillipines
+
+![](figures/phillipines_landings.png)
+
+## Release
+
+![](figures/manta_release.png)
+
+
+## Measurement Goal & Measure
+
+**Goal**: Assess the level of knowledge about safe release techniques over time.
+
+"In general, how likely will a manta ray survive if it is lifted by a brailer or piece of canvas and returned to the sea?"
+
+a. Very Likely
+b. Somewhat Likely
+c. Somewhat Unlikely
+d. Very Unlikely
+e. Don't Know
+
+
+## Source & Rationale & Unit
+
+*Source*: Indepedent survey firm sampling from landing sites at regular intervals.
+
+*Rationale*: The best way to test knowledge is to measure it directly. The answer to the question is not obvious and it does not lead the respondent in a particular direction.
+
+*Unit*: individual survey respondent
+
+
+## Responsibility & Frequency
+
+*Responsibility*: Manta Trust will directly hire survey firm, but will coordinate with the PFDA to expand the monitoring in the future.
+
+*Frequency*: The intention is to track changes in attitudes over time. Annual surveys will allow tracking and matches the time period over which it is feasible for attitudes to change.
+
+
+## Declaring the population
+
+Using administrative data, I found the approximate number of vessel visits per month that land tuna.
+
+Landing site       Approximate vessels per month
+-----------        -----------------------------
+General Santos      700
+Navotas             670
+Iloilo              150
+Lucena              140
+Zamboanga           40
+Davao               30
+Sual                8
+
+
+## Target Population & Challenges
+
+*Target Population*: fishing vessel captains who use purse seine techniques
+
+*Challenge of drawing a representative sample*: sampling effort must be done in landing site clusters, but clusters are of unequal size. It is unclear how often captains return to the same port over the course of the year.
+
+*Sampling procedure*: Cluster-based sampling at ports with unequal effort according to potential sample size.
+
+## DeclareDesign()
+
+```{r pop}
+set.seed(228)
+population <- declare_population(
+  port = add_level(N=7,
+         baseline=c(0.6,0.6,0.4,0.4,0.1,0.1,0.1)),
+  captain = add_level(N=c(700,670,150,140,40,30,8),
+                      know=draw_binary(baseline))
+)
+pop <- population()
+pop.vector <- c(700,670,150,140,40,30,8)
+
+my_estimand <- declare_estimands(mean(know),
+                                 label = "Ybar")
+```
+
+## DeclareDesign()
+
+```{r report-samp}
+reporting <- declare_assignment(prob=0.8,
+                  assignment_variable = "R")
+
+sampling <- declare_sampling(strata=port,
+               strata_n=c(80,80,80,80,8,8,8))
+```
+
+## DeclareDesign()
+
+```{r declare-estimator}
+
+strata_weighted_mean <- function(data){
+  data.frame(  
+  estimator_label = "strata_w_mean",
+  estimand_label = "Ybar",
+  n = nrow(data),
+  stringsAsFactors = FALSE,
+  
+  estimate = data %>% filter(R==1) %>%
+    group_by(port) %>% 
+    summarise(mean=mean(know)) %>%
+    mutate(prop=pop.vector/sum(pop.vector)) %>%
+    mutate(sub.mean=mean*prop) %>% pull(sub.mean) %>% 
+    sum())
+} #just use this function, custom
+
+```
+
+## DeclareDesign()
+
+```{r diagnosis, cache=TRUE}
+
+answer <- declare_estimator(
+  handler = tidy_estimator(strata_weighted_mean),
+  estimand = my_estimand)
+
+design <- population + my_estimand + reporting +
+          sampling + answer
+diagnosis <- diagnose_design(design, sims = 1000)
+
+diagnosis$diagnosands_df[,c(4,5,12,14)] %>%
+  kable()
+
+```

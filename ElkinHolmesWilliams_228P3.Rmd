@@ -1,0 +1,129 @@
+---
+title: '228 Practicum 3: Impact Evaluation'
+author: "Danny Elkin, Eric Holmes, Molly Williams"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+### 0. Load required packages: 
+```{r message=FALSE}
+library(DeclareDesign)
+library(truncnorm)
+library(knitr)
+library(tidyverse)
+
+```
+
+
+## Declare population
+
+```{r}
+set.seed(101)
+population <- declare_population(
+  restaurant = add_level(N=700, # is this total or just those assigned to treatment group?
+    baseline = rtruncnorm(n=N, a=0.38, b=8.21,
+                          mean=1.2, sd=2), # what would be a reasonable range here
+    annual_change_rate = rnorm(n=N, mean=1.1, sd=0.2))
+)
+
+# what does changing runif() to rtruncnorm() do?
+
+pop <- population()
+
+```
+
+
+## Declare potential outcomes
+
+```{r}
+
+potential_outcomes <-
+declare_potential_outcomes(
+Y_Z_0 = baseline * annual_change_rate,
+Y_Z_1 = baseline * annual_change_rate * 0.9) # why do we multiply by 0.9?
+po <- potential_outcomes(pop)
+
+
+```
+
+
+## Potential outcomes descriptives 
+
+```{r}
+
+```{r po-see, echo=FALSE}
+kable(po[1:5,], digits=1)
+```
+
+```{r po-check, echo=TRUE}
+mean(po$baseline)
+sd(po$baseline) # want this to match your baseline distribution?
+
+```
+
+
+## Declare sample size
+```{r}
+sampling <- declare_sampling(n=700) # again, is this the treatment group or the total number of samples?
+sam <- sampling(po)
+```
+
+
+## Declare treatment assignment and reveal potential outcomes
+```{r}
+
+# Assign half the units to the treatment group
+assigning <- declare_assignment(prob=0.5)
+assigned <- assigning(sam)
+kable(assigned[1:5,c(1:2,4:5,7)],
+digits = 1)
+
+
+# Declare  how the potential outcomes are revealed by the random assignment
+revealing <- declare_reveal()
+
+```
+
+
+## Declare estimand and estimator
+
+```{r}
+
+# what is our target treatment effect?
+
+estimand <- declare_estimand(
+prop.change = mean((Y_Z_1-Y_Z_0)/baseline))
+estimand(po) # 10% decrease in WQI in this example
+
+# really not sure what this does... how does it incorporate desired treatment effect?
+dip <- declare_estimator(Y*(1/baseline) ~ Z,
+estimand = estimand,
+model = lm_robust, label = "DIP")
+```
+
+## Declare and diagnose design
+```{r}
+design <- population + potential_outcomes + sampling +
+assigning + revealing + estimand + dip
+
+diagnosis <- diagnose_design(design)
+diagnosis$diagnosands_df[,c(1,3,5,9,11)] %>% # selecting only certain columns?
+kable()
+
+# Visualize estimates 
+hist(diagnosis$simulations_df$estimate)
+
+```
+
+## Levers
+### How do we know which one to use? Blocking or increase sample size? Should we just start with this initially in our design? 
+
+

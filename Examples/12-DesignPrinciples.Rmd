@@ -1,0 +1,414 @@
+---
+title: 'Session 12: Design Principles'
+author: "Mark Buntaine"
+output: html_document
+subtitle: 'ESM228: Monitoring & Evaluation'
+header-includes:
+- \usepackage{caption}
+- \captionsetup[figure]{labelformat=empty}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## The Pursuit of Power
+
+**Type I Error:** Incorrect rejection of null hypothesis (false positive)
+
+- Standard frequentist statistics are focused on avoid this kind of error.
+- *p-value*: probability of observing a particular or more extreme value given that the null hypothesis is true
+
+**Type II Error:** Incorrect failure to reject the null hypothesis (false negative)
+
+- Experimental designs and power analyses are designed to deal with this kind of error.
+
+**It's not worth pursuing an underpowered evaluation, because we won't know how to interpret the results.**
+
+
+## Power
+
+**Power:** probability of being able to reject a null hypothesis given a particular effect size
+
+- This is a probability because different randomization draws will yield different observed treatment effects.
+
+- We want to be sure that a realistic effect of substantive importance can be detected with a particular evaluation design.
+
+
+## Elements of power
+
+1. Sample Size
+
+2. Treatment Effect
+
+3. Variability of Outcome
+
+4. Test Statistic
+
+
+## Elements of power $\rightarrow$ design levers
+
+1. Sample Size $\rightarrow$ increase number of units in study
+
+2. Treatment Effect $\rightarrow$ strengthen the treatment
+
+3. Variability of Outcome $\rightarrow$ blocking/stratification
+
+4. Test Statistic $\rightarrow$ choose test statistics that has lower variance of randomization distribution
+
+
+## Power calculations
+
+Why calculate power?
+
+1. avoid underpowered evaluations
+2. economize on the use of resources (not selecting a large sample than needed)
+    + size of program
+    + size of sample *within* program
+    
+General principle of power
+
+1. large sample size needed to detect small impact
+2. smaller sample size needed to detect larger impact
+
+
+## Notes on power analyses
+
+1. Power analysis is educated guesswork
+
+2. You should generally make conservative guesses
+
+3. You can often use real outcome and covariate data to run power analyses
+(e.g., assume observed outcome data are untreated potential outcomes)
+
+4. You can explore power by fixing all dimensions (e.g., effect size, sample size) except for one
+
+
+## Randomization Distribution of Effect
+
+1. We can generate a randomization distribution of the ATE for a given effect size (this is for an *assumed* treatment effect)
+```{r echo=TRUE}
+set.seed(228)
+E <- rnorm(n=1000, mean=0, sd=10) #unit-level variability
+# sample of 1000 people, 
+sims <- 10000 #simulation of 10,000 random assignments
+ate.store <- rep(NA,sims)
+for (j in 1:sims){
+  D <- rbinom(n=1000, size=1, prob=0.5) #treatment vector; assign 500 of the n=1000 to the treatment
+  Y <- 40 + 2*D + E #data generation process
+  # avg person donates $40/mo
+  # E = error term/variation in how much they donate; e.g. if you get a phone call, you may donate $2 more/month
+  ate.store[j] <- mean(Y[D==1]) - mean(Y[D==0]) #ATE
+  # for each experiment, we take the average of everyone who received the call vs everyone who didn't receive the call (D=0)
+}
+```
+```{r echo=FALSE, fig.height=3}
+hist(ate.store, main="Randomization Distribution", breaks=50)
+```
+
+**Example results table** 
+subject | E   | Y(1)| Y(0) | Ti | D | Y 
+a       | 0   | 42  | 40   | 2  | 1 | 42
+b       | 10  | 52  | 50   | 2  | 1 | 52
+c       | -12 | 30  | 28   | 2  | 0 | 28
+d       | -8  | 34  | 32   | 2  | 1 | 34
+e       | 4   | 46  | 44   | 2  | 0 | 44
+f       | 7   | 49  | 47   | 2  | 0 | 47
+g       | 13  | 55  | 53   | 2  | 1 | 55
+
+*D = treatment group*
+*Y = actual observed amount given*
+
+
+
+## Sharp Null Hypothesis
+
+- We see that even with a clear effect (2), we get a different result for each experimental assignment.
+
+    + The reason is the same as with the *sampling distribution*: some random assignment draw all the high/low values into treatment by chance.
+    + Nonetheless, random assignment and simple difference in means recovers the correct effect *on average*.
+    
+- We can use this property to generate a randomization distribution under the *sharp null hypothesis*
+
+    + $Y_i(1) = Y_i(0)$ or $\tau_i = 0$
+
+## Sharp Null Randomization Distribution
+
+2. We can also compile the randomization distribution under the sharp null:
+```{r echo=TRUE}
+sims <- 10000
+ate.store.sn <- rep(NA,sims)
+set.seed(101)
+for (j in 1:sims){
+  E <- rnorm(n=1000, mean=0, sd=10) #unit-level variability
+  D <- rbinom(n=1000, size=1, prob=0.5) #treatment vector
+  Y <- 40 + 0*D + E #note: sharp null assumption
+  dta <- data.frame(Y,D,E)
+
+  ate.store.sn[j] <- mean(dta$Y[D==1]) - 
+                     mean(dta$Y[D==0])
+}
+```
+
+## Power illustrated cont.
+
+3. Next, we calculate the critical value for rejecting the sharp null from the randomization distribution
+
+(here let's assume $\alpha = 0.05$ for a one-sided test of a positive effect)
+
+```{r echo=TRUE}
+sort(ate.store.sn)[sims*0.95]
+```
+```{r echo=FALSE, fig.height=3.5}
+hist(ate.store.sn, main="Randomization Distribution under sharp null", breaks=50)
+abline(v=sort(ate.store.sn)[sims*0.95], lty=3, lwd=3, col="red")
+```
+
+## Power illustrated cont.
+
+4. Calculate the proportion of random assignments with a given effect size will have an observed value that exceeds threshold for rejecting the null:
+```{r echo=TRUE}
+sum(ate.store > sort(ate.store.sn)[sims*0.95]) / 
+length(ate.store) #power
+```
+
+- *Interpretation:* with this design and data-generating process, we can we can reject the sharp null hypothesis at an effect size of 2 with ~94% probability (power).
+
+
+## Preliminaries
+
+Get R package *DeclareDesign* at declaredesign.org
+
+```{r load, echo=TRUE, warning=FALSE}
+library(DeclareDesign)
+library(truncnorm) #to generate truncated distribution
+library(knitr)
+library(ggplot2)
+library(kableExtra)
+```
+
+## Existing knowledge about outcome data, descriptives
+
+![Jayachandran et al. 2017, Table 1](figures/11-tab1.png){height=60%}
+
+## Existing knowledge about outcome data, impact
+
+![Jayachandran et al. 2017, Table 3](figures/11-tab3.png){height=50%}
+
+
+##declare_population()
+
+This functions allows you to declare the characteristics of the population that you want to study.
+
+```{r population, echo=TRUE}
+set.seed(101)
+population <- declare_population(
+  village = add_level(N=1000, 
+    tree_cover_ha=rtruncnorm(n=N, a=40, b=400, 
+                            mean=140, sd=145),
+    u=rnorm(n=N, mean=-13.4, sd=13.4))
+)
+
+# Approx 1000 villages to choose from 
+# Levels have to be nested hierarchies 
+```
+
+*Note:* in this example, I've played with the distribution to approximate the baseline tree cover (ha) using the Jayachandran et al. (2017) descriptive statistics.
+
+
+##Population descriptives
+
+```{r population-see, echo=TRUE, fig.height=5.5}
+pop <- population()
+hist(pop[,2], xlab="Baseline Forest Cover (ha)", 
+     main="Baseline", cex=24)
+```
+
+##declare_potential_outcomes()
+
+The next step is to declare the full schedule of potential outcomes $Y(1)$ and $Y(0)$ under an assumption about the effect size of interest.
+
+- Recall that in Jayachandran et al. (2017), tree cover decreased by 13.4 ha in the control group and 7.9 ha in the treatment group.
+
+```{r po, echo=TRUE}
+
+potential_outcomes <- 
+  declare_potential_outcomes(
+    Y_Z_0=tree_cover_ha + u, # u = change that gives us the outcome variable that gives us the amount of natural change; untreated potential outcome
+    Y_Z_1=tree_cover_ha + u + 5.5 #5.5 is treatment effect ; what is the outcome you would expect if the village had received payments for ecosystem services? 
+  )
+```
+
+
+##Potential outcomes descriptives
+
+```{r po-see, echo=TRUE}
+po <- potential_outcomes(pop)
+kable(po[1:5,], digits=1)
+```
+
+
+##declare_sampling()
+
+Next, we want to select the sample size. Let's start with 100 villages (recall that the actual study used 120 villages)
+
+```{r sample, echo=TRUE}
+sampling <- declare_sampling(n=100)
+sam <- sampling(po)
+kable(sam[1:5,c(1:2,4:6)], row.names = FALSE,
+      digits = 1)
+```
+
+
+##declare_assignment()
+
+This step declares the random assignment process. There are many complexities, but let's stick to *complete assignment* of exactly half the units at this stage.
+
+```{r assign, echo=TRUE}
+assigning <- declare_assignment(m = nrow(sam)/2)
+assigned <- assigning(sam)
+kable(assigned[1:5,c(1:2,4:5,7:8)], 
+      digits = 1)
+```
+
+
+## Assessing balance
+
+At this stage, it's possible to look at balance in the baseline tree cover characteristics, since random assignment has occured.
+
+```{r violin, echo=FALSE, fig.height=6}
+ggplot(data=assigned, aes(x=as.factor(Z), y=tree_cover_ha)) +
+geom_violin(aes(fill=as.factor(Z), color=as.factor(Z))) +
+theme_minimal(base_size = 24) + xlab("Assignment")
+```
+
+##declare_reveal()
+
+This step declares how the potential outcomes are revealed by the random assignment
+
+```{r reveal, echo=TRUE}
+revealing <- declare_reveal()
+```
+
+##declare_estimand()
+
+At this stage, we specify our target *estimand*, which is the quantity that we are trying to recover when estimating impact. Recall that we set this value to **5.5** in line with Jayachandran et al. (2017).
+
+```{r estimand, echo=TRUE}
+estimand <- declare_estimand(ATE = 5.5)
+estimand(po)
+```
+
+
+##declare_estimator()
+
+Next, we declare the estimators we use for recovering the estimand. While there are many advanced estimators, we'll focus on the two core experimental estimators:
+1. difference-in-means
+2. difference-in-differences
+
+```{r estimator, echo=TRUE}
+dim <- declare_estimator(Y ~ Z, estimand = estimand,  
+          model =  difference_in_means, label = "DIM")
+
+did <- declare_estimator(Y - tree_cover_ha ~ Z, 
+                         estimand = estimand,  
+          model =  difference_in_means, label = "DID")
+
+
+```
+
+
+##declare_design()
+
+This function brings all of the parts of the process together in a single design and allows for each part of the design to be simulated repeatedly.
+
+```{r design, echo=TRUE}
+design <- population + potential_outcomes + sampling +
+          assigning + revealing + estimand + dim + did
+```
+
+
+##diagnose_design()
+
+At this stage, we can calculate various features of the design that we have specified
+
+```{r diagnosis, cache=TRUE}
+diagnosis <- diagnose_design(design, sims=5000)
+diagnosis$diagnosands_df[,c(1,3,5,9,11)] %>%
+  kable()
+```
+
+
+## Looking under the hood, DIM
+
+```{r underhood-dim, height=6}
+sim.out <- diagnosis$simulations
+hist(sim.out$estimate[sim.out$estimator_label=="DIM"],
+     main="Randomization Distribution",
+     xlab="Estimates in Realized Experiments",
+     xlim=c(-60,70), cex=24)
+abline(v=5.5, lwd=3, col="red")
+```
+
+## Looking under the hood, DID
+
+```{r underhood-did, height=6}
+sim.out <- diagnosis$simulations
+hist(sim.out$estimate[sim.out$estimator_label=="DID"],
+     main="Randomization Distribution",
+     xlab="Estimates in Realized Experiments",
+     xlim=c(-60,70), cex=24)
+abline(v=5.5, lwd=3, col="red")
+```
+
+##modify_design()
+
+That's not enough power. Let's increase the sample size.
+
+```{r more-sample, echo=TRUE}
+sampling2 <- declare_sampling(n=250)
+design2 <- population + potential_outcomes + sampling2 +
+          assigning + revealing + estimand + dim + did
+```
+
+##diagnose_design()
+
+Diagnosing the design with twice the sample size
+
+```{r diagnosis2}
+diagnosis2 <- diagnose_design(design2, sims=5000)
+diagnosis2$diagnosands_df[,c(1,3,5,9,11)] %>%
+  kable()
+```
+
+
+## Looking under the hood, DIM
+
+```{r underhood-dim2, height=6}
+sim.out <- diagnosis2$simulations
+hist(sim.out$estimate[sim.out$estimator_label=="DIM"],
+     main="Randomization Distribution",
+     xlab="Estimates in Realized Experiments",
+     xlim=c(-60,70), cex=24)
+abline(v=5.5, lwd=3, col="red")
+```
+
+## Looking under the hood, DID
+
+```{r underhood-did2, height=6}
+sim.out <- diagnosis2$simulations
+hist(sim.out$estimate[sim.out$estimator_label=="DID"],
+     main="Randomization Distribution",
+     xlab="Estimates in Realized Experiments",
+     xlim=c(-60,70), cex=24)
+abline(v=5.5, lwd=3, col="red")
+```
+
+## Advanced topics
+
+1. clustering - reduces power under intra-cluster correlation
+2. stratified sampling
+3. unequal assignment probabilities
+4. blocking and post-stratification
+5. re-randomization
+

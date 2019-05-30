@@ -1,0 +1,282 @@
+---
+title: "Session 14: Design Challenges"
+subtitle: "ESM228: Monitoring & Evaluation"
+author: "Mark Buntaine"
+output: beamer_presentation
+header-includes:
+- \usepackage{caption}
+- \captionsetup[figure]{labelformat=empty}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## The Experimental Logic
+
+$$ATE = E[Y_i(1)|D_i=1] - E[Y_i(0)|D_i=0]$$
+
+- Under random assignment of $D$, there is no expected difference in the covariate profiles of units assigned to treatment and control:
+
+$$E[X_i|D_i=1] - E[X_i|D_i=0] = 0$$
+
+- Thus because of covariate "balance":
+$$E[Y_i(0)|X_i,D_i=1] = E[Y_i(0)|X_i,D_i=0]$$
+
+## Design challenges
+
+- Design challenges arise when the randomization breaks down such the treatment and control groups no long have equivalent characteristics in expectation:
+
+1. Non-compliance
+2. Interference
+3. Attrition
+
+- All of these challenges cause bias when they affect the experimental groups differently
+- All of these challenges change the estimand when not random, even if they affect experimental groups equally
+
+
+## Non-compliance
+
+*Definition*: units take up treatment other than as assigned
+
+- Here we expand the notation such that $d$ is the receipt of treatment and $w$ is the assignment of treatment
+- For example $d_i(w_i=1) = d_i(1) = 0$ is a subject that does not receive treatment when assigned to treatment
+
+- Other examples:
+    + Not all treated PFOs participate in the PES program (Uganda)
+    + Not all villages buy into the micro-grid as assigned (India)
+
+
+## Non-compliance example: KCCA reporting platform
+
+![](figures/14_kcca_assi.png)
+
+
+## Types of units
+
+- Compliers: $d_i(1) = 1$ and $d_i(0) = 0$
+- Never-Takers: $d_i(1) = 0$ and $d_i(0) = 0$
+
+We assume that each unit's type is fixed conditional on the experimental setting
+
+*One-sided non-compliance:* some subjects assigned to treatment are not treated ("failure-to-treat")
+
+- For example $d_i(w_i=1) = d_i(1) = 0$ is a subject that does not receive treatment when assigned to treatment.
+
+(These are the only two groups under one-sides non-compliance, it gets more complicated with two-sided non-compliance, which we will not cover)
+
+
+## Types of units cont.
+
+There are three important things to keep in mind about the notation on non-compliance:
+
+1. This notation has nothing to do with outcomes $Y_i$, it is about the fixed type of each unit
+2. We are assuming a binary treatment, with no dosage possible
+3. Each unit's type depends on background characteristics and the experimental context
+
+
+## Intent to Treat
+
+- In this style of analysis, non-compliance is ignored:
+$$ITT = E[Y_i(w_i=1)|w_i=1] - E[Y_i(w_i=0)|w_i=0]$$
+- This is a useful quantity for many implementing agencies, since they want to know about the effectiveness of interventions inclusive of non-compliance
+
+This contrasts with the ATE:
+$$ATE = E[Y_i(d_i=1)|d_i=1] - E[Y_i(d_i=0)|d_i=0]$$
+
+- $ITT = ATE$ when there is full compliance
+- We cannot estimate the ATE in an unbiased way using receipt of treatment when non-compliance is present, because $d_i$ is not randomly assigned
+
+
+## Non-compliance example: KCCA reporting platform
+
+![](figures/14-kcca-itt.png)
+
+    
+## Complier Average Causal Effects (CACE)
+
+$$ CACE = E[ Y_i(d=1)-Y_i(d=0) | d_i(1)=1 ] $$
+
+- CACE is the ATE *among* compliers; the problem is that compliance in the control group might not be visible.
+
+
+## Complier Average Causal Effects (CACE) estimation
+
+1. when you have measures of compliance in both treatment and control (placebo designs)
+    + depends on the excludability assumption that compliance does not depend on treatment assignment
+    
+2. $CACE = ITT/ITT_D = \frac{ITT}{(\sum_{w_i=1}d_i/\sum w_i))}$
+    + ATE is weighted average of zero effect among never-takers and treatment effect among compliers
+    + Assumes large samples
+    + Local average treatment effects (LATE) via instrumental variables
+
+**Not okay:** Estimate ATE on subset of observed compliers (all control; compliers treated)
+
+**Compare only groups formed by random assignment**
+
+
+## Non-compliance: practical strategies
+
+- Randomize conditional on contact with research subjects
+- Randomize conditional on psuedo-compliance check
+- Design treatments such that receipt of treatment is only available in cooperation with experimenters
+- Design treatments so that there is no non-compliance!
+
+
+## Interference (a.k.a. spillover)
+
+*Definition*: units are affected by the treatment status of other units
+
+- Two implications of interference:
+    1. different estimand
+    2. unequal probability of exposure to spillover
+    
+
+## Interference example: PITI evaluation
+
+![](figures/14-piti-sample.png)
+
+
+## Some expanded notation
+
+**Non-interference (SUTVA):** treatment assignment of other units does not affect potential outcomes of unit $i$.
+$$E[Y_i(1)] \equiv E[Y_i(1) | D_j]$$
+
+- Under interference, we can expand the set of potential outcomes to include direct and indirect treatment, such was potential outcomes is $Y(d_i=1,i_i=1)$, where unit $i$ is exposed to direct treatment $d$ and indirect treatment $i$.
+
+- Assume that $i$ is active under some given process of spillover (e.g. continguity)
+- To estimate the ATE in the way we have discussed we have to assume that:
+$$Y(d_i=1,i_i=1) = Y(d_i=1,i_i=0) \text{ and }$$ 
+$$Y(d_i=0,i_i=1) = Y(d_i=0,i_i=0)$$
+for all potential spillover processes $i$.
+
+## Interference: a simple example
+
+![](figures/12-fig8-1.png)
+
+- Assume some baseline $Y_i(d_i=0,i_i=0)$ for all Y
+- Assume that the direct treatment effect of $d_i$ is 2
+- Assume that the indirect treatment effect $i_i$, which is active when a unit located next to at least one treated unit is 1
+
+## Interference: a simple example cont.
+
+Outcome: average electricity use per week in hours
+
+Subject     Y(d=0,i=0)      Y(d=1,i=0)         Y(d=0,i=1)        Y(d=1,i=1)
+--------   --------------   ----------------   ----------------  ----------------
+a           5               7                  6                  8
+b           10              12                 11                 13
+c           15              17                 16                 18
+d           20              22                 21                 23
+e           --              --                 --                 --
+f           30              32                 31                 33
+
+
+## Estimating the treatment effect of indirect exposure
+
+- **Assuming** we have identified the correct spillover process $i$, we can estimate its effects
+    + Recognize that units have different probabilities of assignment to indirect exposure
+    + Use *inverse probability weighting*: the units that have a low probability of assignment to treatment will not show up as often as observed outcomes and thus need to be re-weighted so that on average these units take their equal place in the observed outcomes
+
+
+## Interference: practical strategies
+
+- Leave non-experimental units not possibily affect by spillover
+- Cluster assignment at level where spillover is expected
+    + such that after clustering, interference between clusters is unlikely (taking into power implications)
+- Robustness checks for different spillover processes
+- Two-level designs where exposure to spillover is randomized
+
+## Interference: PITI example
+
+![](figures/14-piti-spill.png)
+
+
+## Attrition
+
+*Definition*: units drop out of study prior to the collection of outcome data
+
+- Attrition is a large concern when it is different by treatment condition
+- Even without differential attrition, interpretation can be difficult, since the effective sample might not be the target sample after attrition
+
+
+## Attrition: Uganda Twaweza example
+
+![](figures/14-vote-choice-sample.png)
+
+## Examples of attrition
+
+- Subjects unreachable at endline
+- Treated subjects become uncooperative with the research team
+- Access to some outcomes is blocked
+
+
+## Attrition and biased estimation
+
+Define a new potential outcome that indicates whether an outcome is reported for subject $i$, such that $r_i=1$ when the outcome is reported and $r_i=0$ when the outcome is not reported.
+
+We can re-write the ATE (of the whole sample) conditional on non-missingness as:
+$$ATE=E[Y_i(1)| r_i(1)=1)-Y_i (0)|r_i(0)=1)]$$
+
+- This looks very much like the ATE we have seen, *except* $r$ is not randomly assigned
+- Thus, if $r$ is related to potential outcomes $E[Y_i(1)| r_i(1)=1)] = E[Y_i(1)]$
+
+
+## Attrition that is not problematic
+
+Thus, the only case where attrition does not cause bias is when:
+$$E[Y_i(1)| r_i(1)=1)] = E[Y_i(1)| r_i(1)=0)]$$
+$$E[Y_i(0)| r_i(0)=1)] = E[Y_i(0)| r_i(0)=0)]$$
+
+- That is, when missingness is indepedent of potential outcomes
+
+## Solution 1: MIPO
+
+- "Missing Indepedent of Potential Outcomes" - this is a strategy of making assumptions about the relationship between missingness and potential outcomes
+
+$$Y_i (w) { \perp\!\!\!\perp } r_i (w)$$
+- If missingness is indepedent of potential outcomes, there should be no association between missingness and covariates that are prognostic of $Y_i(w)$.
+
+
+## Solution 2: MIPO|X
+
+- "Missing Indepedent of Potential Outcomes given $X$" - after partitioning the sample by some $X$, missingness is MIPO within partitions.
+
+- If this assumption holds, can estimate the ATE by taking a weighted average of partions, such that:
+$$E[Y_i(1)]=\frac{1}{N} \sum \frac{Y_i(1)r_i(1)}{\pi(w_i=1,x)}$$
+where $\pi(w_i=1,x)$ is the share of non-missing subjects among all treated subjects.
+
+- The implicit weight is higher for partions that have more missingness
+- Note the value of collecting pre-treatment data to assess these assumptions
+
+
+## Solution 3: Missingness independent of treatment assignment
+
+- When missingness is indepedent of treatment assignment ($r_i(1)=r_i(0)$), we can get to an unbiased estimate of the ATE within the group of *Always-Reporters*
+
+- Always-Reporters: $r_i(1) = 1$ and $r_i(0) = 1$
+- Never-Reporters: $r_i(1) = 0$ and $r_i(0) = 0$
+
+- Test: $\chi^2$ test for difference in rates of attrition
+- The potential outcomes of Always-Reporters may be different from the whole sample
+
+## Attrition: Uganda example
+
+![](figures/14-vc-attrition.png)
+
+## Intensive follow-up to characterize attrited subjects
+
+- Select a random sample of subjects for *intensive* follow-up, such that the follow-up procedure guarantees no attrition
+- Assuming no attrition in *intensive* follow-up, the follow-up subjects provide an unbiased estimate for all the missing subjects
+
+- *Caution*: have to consider whether intensive follow-up changes the potential outcomes
+
+
+## Practical solutions: attrition
+
+- Pilot strategies for follow-up data collection
+- Select sample such that attrition is less problematic (careful about changing target inference)
+- Identify "intensive" follow-up strategy with little attrition
+- Identify back-up ways to contact subjects 
+- Use measurements that do not depend on contact with human subjects
+

@@ -1,0 +1,244 @@
+---
+title: "Session 10: Causal Inference and Counterfactuals"
+subtitle: "ESM228: Monitoring & Evaluation"
+author: "Mark Buntaine"
+output: beamer_presentation
+header-includes:
+- \usepackage{caption}
+- \captionsetup[figure]{labelformat=empty}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## From monitoring, to evaluation
+
+- **Monitoring:** “continuous process that tracks what is happening within a program” (Gertler et al. 2016, p. 7).
+
+- **Evaluation:** “periodic, objective assessments of a planned, ongoing, or completed project, program, or policy” (Gertler et al. 2016, p. 7).
+
+
+## Causal Quantities of Interest
+
+- Consider for a moment if we had the full table of potential outcomes (e.g., the amount of money donated to an environmental organization after a new fundraising strategy):
+
+Subject     Y(1)             Y(0)
+--------   --------------   ----------------
+a           20               0
+b           100              100
+c           40               20
+d           0                0
+e           0                0
+---------  --------------   ----------------
+
+## Average Treatment Effect
+
+Subject     Y(1)             Y(0)              $\tau_{i}$
+--------   --------------   ----------------   ----------------
+a           20               0                 20
+b           100              100               0
+c           40               20                20
+d           0                0                 0
+e           0                0                 0
+
+
+$$ATE = \frac{\sum_i^N \tau_{i}}{N} = \frac{\sum_i^N Y_i(1)}{N} - \frac{\sum_i^N Y_i(0)}{N}$$
+
+## Causal Inference as a Missing Data Problem
+
+Subject     Y(1)             Y(0)              $\tau_{i}$
+--------   --------------   ----------------   ----------------
+a           20               ?                 ?
+b           ?                100               ?
+c           ?                20                ?
+d           0                ?                 ?
+e           0                ?                 ?
+
+
+$$ATE = \frac{\sum_i^N \tau_{i}}{N} = \frac{\sum_i^N Y_i(1)}{N} - \frac{\sum_i^N Y_i(0)}{N}$$
+
+## Causal Inference as a Missing Data Problem
+
+Subject     Y(1)             Y(0)              $\tau_{i}$
+--------   --------------   ----------------   ----------------
+a           20               ?                 ?
+b           100              ?                 ?
+c           40               ?                 ?
+d           0                ?                 ?
+e           0                ?                 ?
+
+
+$$ATE = \frac{\sum_i^N \tau_{i}}{N} = \frac{\sum_i^N Y_i(1)}{N} - \frac{\sum_i^N Y_i(0)}{N}$$
+
+- We never observe both unit-level potential outcomes, so we need to *estimate* treatment effects (impacts).
+
+
+## Causal Quantities of Interest (Rubin Causal Model)
+
+- Unit level treatment effect is given by:
+
+$$\tau_i = Y_i(1) - Y_i(0)$$
+
+- Problem is that we only observe one of the two quantities for any individual unit:
+
+$$Y_i^{\text{obs}} = Y_i(D_i) = D_i*Y_i(1) + (1-D_i)*Y_i(0)$$
+
+- If we did observe both quantities of interest at the unit level, causal inference would be easy.
+
+
+## Counterfactuals
+
+- **Definition**: the unobserved potential outcome
+
+- The *treatment effect* or *impact* is the difference between the realized outcome and the counterfactual outcome.
+    + Because we never observe both potential outcomes, we must *estimate* impact
+    + Impact is never observed
+- The methods we employ determine the credibility of the estimate of the impact
+    + All estimates of impact should be interpreted according to the plausibility of the assumptions that are part of estimation
+
+
+## Impact Evaluation
+
+- **Goal**: establish the extent to which the intervention -- and only the intervention -- caused a change in the outcome
+
+- Impact evaluation is fundamentally about *estimating* the counterfactual state of units that are part of a program
+
+- *Problem*: there is no unit that is exactly like another unit in every other way; we can always identify or infer some differences that are hard to measure
+    + Have to assume that any unobserved differences are not related in any way to the outcome
+    
+- "Much of what is called evaluation of environmental program impact is simply monitoring of indicators" (Ferraro 2009, p. 76)
+    
+
+## Unit vs. Group-Level Impact
+
+- Groups of units: can we identify a group of units that are identical *on average* except for the treatment (World Bank, 2016):
+    + Identical average characteristics in the absence of the program
+    + Program does not affect the comparison group directly or indirectly
+    + Would react the the program in the same way on average
+    
+- **Bias**: difference between true impact and estimated impact
+
+
+## Before-After as Counterfactual
+
+- *Analytical question*: has the outcome changed?
+- *Key assumption*: the baseline outcome would have persisted unchanged over time
+    + by extension, nothing except the treatment changed during the analysis period
+
+![](figures/9-before-after.png){height=50%}
+
+
+## Before-After as Counterfactual
+
+![Lagarde 2012, Figure 1](figures/9-trends.png)
+
+
+## With-Without as Counterfactual
+
+- *Analytical question*: what is the difference in outcomes for treated and untreated units?
+
+- *Key assumption*: there are no systematic differences between the treatment and control units except for the treatment
+    + This assumption is especially problematic when units self-select into a program (selection bias)
+    
+    
+## With-Without as Counterfactual: Protected Areas
+
+- Protected areas have lower rates of deforestation than non-protected areas (Andam et al. 2008)
+    + Does this mean that protect areas cause less deforestation?
+    
+![](figures/9-Andam_etal.png){height=50%}
+
+## With-Without as Counterfactual: Protected Areas
+
+![Buntaine et al. 2015](figures/9-buntaine_gec.png)
+
+
+## With-Without and Model Adjustment as Counterfactual
+
+- *Analytical question*: accounting for the observable characteristics of the units, what is the difference in outcomes in units with and without the treatment?
+
+- *Key assumption*: no omitted variables. After adjusting for observable characteristics, there are no systematic differences between the treatment and control units except for the treatment
+
+![Buntaine et al. 2015](figures/9-buntaine_tab2.png)
+
+
+## Difference-in-Differences
+
+- *Analytical question*: has the outcome *changed* (over time) differently in the treated units as compared to the control units?
+    + Also known as "Before-After-Control-Impact" (BACI) in ecological sciences
+
+- *Key assumption*: the treated and comparison units were on parallel trends prior to the introduction of the treatment
+
+
+##DD Example, Lobster per trap day (Moland et al. 2013)
+
+![Moland et al. 2013, Figure 1](figures/9-baci0.jpg)
+
+
+##DD Example, Lobster per trap day (Moland et al. 2013)
+
+![Moland et al. 2013, Figure 2](figures/9-baci.jpg)
+
+
+##DD Example, Lobster per trap day (Moland et al. 2013)
+
+![Moland et al. 2013, Figure 3](figures/9-baci2.jpg){height=70%}
+
+
+## Random Allocation of Treatment
+
+- Expected value: average outcome of a random variable
+- The expected value of a random sample from a population is equal to the population mean.
+
+$$E[Y_i(1)|D_i=1] \equiv \mu_{Y(1)}$$
+$$E[Y_i(0)|D_i=0] \equiv \mu_{Y(0)}$$
+
+- Thus, we are able to gain unbiased estimates of the ATE even when we do not observe all potential outcomes.
+- This property holds even when we do not know about, consider, observe, or "control for" other possible causes of the outcome.
+- This is the fundamental advantage of experimentation: **unbiased estimation in the presence of unobservables.**
+
+
+## Estimating the ATE without bias
+
+- With the random assignment of $D$, we can use the potential outcomes that we do observe to form an unbiased estimate of the ATE *within the study sample*:
+
+$$ATE = E[Y_i(1)|D_i=1] - E[Y_i(0)|D_i=0]$$
+
+- We recover the ATE of the *study sample* in expectation even without access to the full table of potential outcomes.
+- This is the simplest of experimental estimators: **difference-in-means**
+
+
+## Ruling out confounders
+
+- Random assignment (or a process that mimics random assignment) is the only way in expectation to rule out both observed and *unobserved* confounds
+    + With random assignment, we no longer rely on *no omitted variables* assumption
+
+![](figures/9-confound.png){height=50%}
+
+## Covariates with random assignment
+
+- What about all the other stuff that is related to potential outcomes $Y_i(1)$ and $Y_i(0)$?
+- We call these covariate vectors $X$. Because of random sampling:
+$$E[X_i|D_i=1] = E[X_i|D_i=0] \equiv \mu_{X_i}$$
+
+- Under random assignment of $D$, there is no expected difference in the covariate profiles of units assigned to treatment and control:
+$$E[X_i|D_i=1] - E[X_i|D_i=0] = 0$$
+
+- Thus because of covariate "balance":
+$$E[Y_i(0)|X_i,D_i=1] = E[Y_i(0)|X_i,D_i=0]$$
+
+- Treatment and control group have equivalent potential outcomes in expectation.
+
+
+## Impact evaluation in practice
+
+- Not all programs are suitable for an impact evaluation, as programs cannot be exogenously varied
+
+- Good candidates:
+    + Pilot programs applied identically to many units
+    + Programs where resource constraints prevent all units from being treated
+    + Programs that need testing before going to scale
+    
+    
+    

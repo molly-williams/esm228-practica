@@ -1,0 +1,428 @@
+---
+title: "Session 13: Power"
+subtitle: "Jiangsu River Guardians Program"
+subsubtitle: "ESM228: Monitoring & Evaluation"
+author: "Mark Buntaine"
+output: beamer_presentation
+header-includes:
+- \usepackage{caption}
+- \captionsetup[figure]{labelformat=empty}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## 1. Treatment
+
+- What is the treatment to be randomly assigned? 
+
+    + Citizens will monitoring urban waterways on a biweekly basis and the the NGO MEEPA will compile the data into reports to share with the provincial government weekly.
+
+- How does the treatment correspond to a broader class of interventions?
+
+    + Scaled up from a preliminary program applied to 10 rivers
+    + Corresponds to "citizen science" and "citizen monitoring" program pursued for environmental management worldwide.
+    
+
+## 2. Sample
+
+- How will you draw your sample?
+
+    + This is a partnership with MEEPA and the Jaingsu Environmental Protection Bureau. All mapped urban waterways are eligible.
+
+- How does it correspond to the population of interest?
+
+    + The sample approximates a census sample (the whole population). It is possible that the waterways that are mapped are unlike the waterways that are not mapped (perhaps larger and more consequential)
+    
+
+## 3. Randomization
+
+- How will you assign treatment?
+    + Tricky, since this is a multi-armed, crossed IE design
+
+- Breakdown for our purposes: 
+    + Monitoring / Dissemination to Government (prob=0.5)
+    + Control (prob=0.5)
+    
+
+## 4. Measurement
+
+- What is the *primary* outcome for your impact evaluation? 
+    + water quality
+
+- How will you measure it?
+    + composite water quality index, derived from Shanghai WQI already being used
+    + index is slightly modified to stay within budget by eliminating some highly correlated components
+    
+![](figures/13b-WQI.png){height=60%}
+
+## 4. Measurement cont...
+
+$WQI = \sum_{i=1}^{i} w_{i}P_{i}$
+
+- $I\leq0.8$ (Qualified water source): The functional standards are water quality are met, even if individual items exceed the relevant standards.
+
+- $0.8<I\leq 1$ (Basically qualified water source): Water function has not been severely damaged, even though a few items are exceeded.
+
+- $1<I\leq 2$ (Polluted water source): Contaminated water where many of the individual items do not meet the standards, requiring remediation.
+
+- $I>2$ (Heavily polluted water source): Severely contaminated water that is unlikely to meet functional standards for use.
+
+
+## 5. Power
+
+Does a power analysis indicate that you will have sufficient power to detect a reasonable treatment effect?
+
+- We need three pieces of information or "educated guesses" about that information in order to run a power analysis:
+
+1. What is the baseline distribution of the outcome variable?
+2. How does the outcome variable change over time *not* due to treatment?
+3. What is the magnitude of the treatment effect that we want to be able to detect?
+
+
+## 5.1. Baseline values
+
+What is the baseline distribution of the outcome variable?
+
+- We got data about the distribution of WQI for *large rivers* with automatic monitoring in the same region:
+    + mean = 1.2
+    + range = [0.38,8.21]
+    + sd = 1.13
+    + We can assume small waterways are slightly more polluted
+    
+- What if we couldn't get pseudo-baseline data?
+    + We know Chinese rivers are highly polluted (set mean = 1.5)
+    + What is the most variation in baseline values we could reasonably expect?
+        + Guess extremes from news reports, government reports, local sources, etc.
+        
+- What if we couldn't estimate the extremes from sources in China?
+    + Worldwide, what is the highest value of WQI that we could expect?
+    + Worldwide, what is the cleanest WQI we could expect?
+
+
+## 5.2. Change over time
+
+How does the outcome variable change over time *not* due to treatment?
+
+- We used the same data from large, automatically monitored rivers to form an estimate of the average year-to-year fluctuations in the WQI by comparing the same river at the same month in different years without treatment:
+    + We found that WQI was getting slightly worse over time, but very close to zero average change
+    + We found that the *within, over-time* variance was about ~50% of the *between* waterway variance
+    
+- What if we couldn't get data on year-to-year variance in WQI?
+    + Conservative assumption: *within* variance approximates *between* variance
+    + Look at rate of correlations between water quality year-to-year in other contexts. What is the approximate variance over time relative to variance between different water sources?
+    
+## 5.3 Treatment effect
+
+What is the magnitude of the treatment effect that we want to be able to detect?
+
+- This is a substantive question. Our partners told us they wanted to be able to see ~10% reduction in the WQI on average as a function of treatment
+
+
+## Preliminaries
+
+Load the required packages.
+
+```{r load, echo=TRUE, message=FALSE}
+library(DeclareDesign)
+library(truncnorm)
+library(knitr)
+library(ggplot2)
+library(dplyr)
+```
+
+
+## declare_population()
+
+This functions allows you to declare the characteristics of the population that you want to study.
+
+```{r population, echo=TRUE}
+set.seed(101)
+population <- declare_population(
+  waterway = add_level(N=200, 
+    baseline_wqi = runif(n=N, min=0.38, max=8.21),
+    annual_change_rate = rnorm(n=N, mean=1.1, sd=0.2))
+)
+
+pop <- population()
+```
+
+
+## declare_potential_outcomes()
+
+The next step is to declare the full schedule of potential outcomes $Y(1)$ and $Y(0)$ under an assumption about the effect size of interest.
+
+
+```{r po, echo=TRUE}
+potential_outcomes <- 
+  declare_potential_outcomes(
+    Y_Z_0 = baseline_wqi * annual_change_rate,
+    Y_Z_1 = baseline_wqi * annual_change_rate * 0.9)
+po <- potential_outcomes(pop)
+```
+
+
+## Potential outcomes descriptives
+
+```{r po-see, echo=FALSE}
+kable(po[1:5,], digits=1)
+```
+
+```{r po-check, echo=TRUE}
+mean(po$baseline_wqi)
+sd(po$baseline_wqi)
+```
+
+This is not quite right; the baseline distribution doesn't look like what I want it to look like (mean=1.2, sd=1.2). Let's try again.
+
+
+## declare_population(), v2
+
+```{r population2, echo=TRUE}
+set.seed(101)
+population <- declare_population(
+  waterway = add_level(N=200, 
+    baseline_wqi = rtruncnorm(n=N, a=0.38, b=8.21, 
+                            mean=1.2, sd=2),
+    annual_change_rate = rnorm(n=N, mean=1.1, sd=0.2))
+)
+pop <- population()
+```
+
+```{r pop-check, echo=TRUE}
+mean(pop$baseline_wqi)
+sd(pop$baseline_wqi)
+```
+
+## declare_potential_outcomes(), v2
+
+```{r po2, echo=TRUE}
+potential_outcomes <- 
+  declare_potential_outcomes(
+    Y_Z_0 = baseline_wqi * annual_change_rate,
+    Y_Z_1 = baseline_wqi * annual_change_rate * 0.9)
+po <- potential_outcomes(pop)
+```
+
+```{r over-time-check, echo=TRUE}
+sd(po$baseline_wqi)
+sd(po$Y_Z_0 - po$baseline_wqi)
+```
+
+There is not quite as much *over-time* variance as I want relative to the *between* variance.
+
+
+## declare_population(), v3
+
+```{r population3, echo=TRUE}
+set.seed(101)
+population <- declare_population(
+  waterway = add_level(N=200, 
+    baseline_wqi = rtruncnorm(n=N, a=0.38, b=8.21, 
+                            mean=1.2, sd=2),
+    annual_change_rate = rnorm(n=N, mean=1.1, sd=0.25))
+)
+pop <- population()
+```
+
+```{r pop-check3, echo=TRUE}
+mean(pop$baseline_wqi)
+sd(pop$baseline_wqi)
+```
+
+## declare_potential_outcomes(), v3
+
+```{r po3, echo=TRUE}
+potential_outcomes <- 
+  declare_potential_outcomes(
+    Y_Z_0 = baseline_wqi * annual_change_rate,
+    Y_Z_1 = baseline_wqi * annual_change_rate * 0.9)
+po <- potential_outcomes(pop)
+```
+
+```{r over-time-check3, echo=TRUE}
+sd(po$baseline_wqi)
+sd(po$Y_Z_0 - po$baseline_wqi)
+```
+
+Perfect. Now I have a simulated schedule of potential outcomes where the *between* variance is approximately double the *within* variance.
+
+
+## Potential outcomes descriptives
+
+```{r po-see3, echo=FALSE}
+kable(po[1:5,], digits=1)
+```
+
+## Elements of power $\rightarrow$ design levers
+
+1. Sample Size $\rightarrow$ increase number of units in study
+
+2. Treatment Effect $\rightarrow$ strengthen the treatment
+
+3. Variability of Outcome $\rightarrow$ blocking/stratification
+
+4. Test Statistic $\rightarrow$ choose test statistics that has lower variance of randomization distribution
+
+
+## declare_sampling()
+
+Next, we want to select the sample size:
+
+```{r sample, echo=TRUE}
+sampling <- declare_sampling(n=50)
+sam <- sampling(po)
+```
+
+
+## declare_assignment()
+
+We now want to assign half of the units to treatment.
+
+```{r assign, echo=TRUE}
+assigning <- declare_assignment(prob=0.5)
+assigned <- assigning(sam)
+kable(assigned[1:5,c(1:2,4:5,7)], 
+      digits = 1)
+```
+
+
+## declare_reveal()
+
+This step declares how the potential outcomes are revealed by the random assignment
+
+```{r reveal, echo=TRUE}
+revealing <- declare_reveal()
+```
+
+
+## declare_estimand()
+
+Recall that we set the treatment effect as a 10% reduction in WQI relative to the control group.
+
+```{r estimand, echo=TRUE}
+estimand <- declare_estimand(
+  prop.change = mean((Y_Z_1-Y_Z_0)/baseline_wqi))
+estimand(po)
+```
+
+
+## declare_estimator()
+
+Here we are going to take as our outcome the ratio of endline:baseline WQI
+
+```{r estimator, echo=TRUE}
+dip <- declare_estimator(Y*(1/baseline_wqi) ~ Z, 
+                         estimand = estimand,  
+          model =  lm_robust, label = "DIP")
+```
+
+
+## declare_design()
+
+This function brings all of the parts of the process together in a single design and allows for each part of the design to be simulated repeatedly.
+
+```{r design, echo=TRUE}
+design <- population + potential_outcomes + sampling +
+          assigning + revealing + estimand + dip
+```
+
+
+## diagnose_design()
+
+At this stage, we can calculate various features of the design that we have specified:
+
+```{r diagnosis, cache=TRUE}
+diagnosis <- diagnose_design(design)
+diagnosis$diagnosands_df[,c(1,3,5,9,11)] %>%
+  kable()
+```
+
+## Histogram of estimates
+
+```{r hist-estimates}
+hist(diagnosis$simulations_df$estimate)
+```
+
+## Lever 1: Increase the sample size
+
+```{r redesign1, echo=TRUE, cache=TRUE}
+sampling2 <- declare_sampling(n=70)
+sampling3 <- declare_sampling(n=90)
+sampling4 <- declare_sampling(n=110)
+sampling5 <- declare_sampling(n=130)
+sampling6 <- declare_sampling(n=150)
+design2 <- population + potential_outcomes + 
+           sampling6 +
+           assigning + revealing + estimand + dip
+diagnosis2 <- diagnose_design(design2)
+```
+
+## Lever 1 output
+
+```{r redesign1-output, fig.height=4}
+diagnosis2$diagnosands_df[,c(1,3,5,9,11)] %>%
+  kable()
+hist(diagnosis2$simulations_df$estimate)
+```
+
+## Lever 3: Blocking
+
+- **Block random assignment:** A procedure whereby subjects are partitioned into subgroups (called blocks or strata) and complete random assignment occurs within each block.
+
+
+## Average treatment effects with blocking
+
+$$\widehat{ATE} = \sum_{j}\frac{N_j}{N} \overline{Y_{ij}}(1) - \overline{Y_{ij}}(0)$$
+
+- Intuitution: weighted average of many small experimental replicates
+
+## Blocking advantanges
+
+1. Administrative requirements for treating certain types of subjects
+2. Facilitates subgroup analysis
+3. Improves precision of estimated ATE (reduces variance in randomization distribution)
+4. Covariate adjustment will be less important
+5. Stratification can do no worse than simple randomization (Imbens et al. 2009)
+    + "stratifying on independently and identically distributed noise does not do any worse than a simple random draw" (Bruhn & McKenzie 2009, 225)
+6. Balance maintained after block-wise attrition
+
+## Blocking example
+
+```{r population4, echo=TRUE}
+set.seed(101)
+population <- declare_population(
+  waterway = add_level(N=200, 
+    baseline_wqi = sort(rtruncnorm(n=N, a=0.38, b=8.21, 
+                            mean=1.2, sd=2)),
+    annual_change_rate = rnorm(n=N, mean=1.1, sd=0.25))
+)
+pop <- population()
+```
+
+## Blocking example
+
+```{r blocking, echo=TRUE, cache=TRUE}
+sam.n <- 150
+blocking   <- declare_step(fabricate, 
+                couples = rep(1:(sam.n/2), each = 2))
+
+assigning2 <- declare_assignment(prob=0.5, blocks=couples)
+
+sampling6 <- declare_sampling(n=sam.n)
+
+design3 <- population + potential_outcomes + 
+           sampling6 + blocking +
+           assigning2 + revealing + estimand + dip
+diagnosis3 <- diagnose_design(design3)
+```
+
+## Blocking example output
+
+```{r redesign-block-output, fig.height=4}
+diagnosis3$diagnosands_df[,c(1,3,5,9,11)] %>%
+  kable()
+hist(diagnosis3$simulations_df$estimate)
+```
