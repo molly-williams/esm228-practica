@@ -28,15 +28,17 @@ library(tidyverse)
 ```{r}
 set.seed(101)
 population <- declare_population(
-  restaurant = add_level(N=700, # is this total or just those assigned to treatment group?
-    baseline = rtruncnorm(n=N, a=0.38, b=8.21,
-                          mean=1.2, sd=2), # what would be a reasonable range here
-    annual_change_rate = rnorm(n=N, mean=1.1, sd=0.2))
+  restaurant = add_level(N=140, 
+    baseline = runif(n=N, min=0.10, max=0.35), # a=min b = max
+    annual_change = rnorm(n=N, mean=0.05, sd=0.1))
 )
 
-# what does changing runif() to rtruncnorm() do?
+# some year to year variation; mean=0 means that on average stores will do the same thing 
+# we think that the annual change will have some 
 
 pop <- population()
+
+# for annual change rate, how would we know the increase in awareness about sustanable seafood?
 
 ```
 
@@ -47,8 +49,9 @@ pop <- population()
 
 potential_outcomes <-
 declare_potential_outcomes(
-Y_Z_0 = baseline * annual_change_rate,
-Y_Z_1 = baseline * annual_change_rate * 0.9) # why do we multiply by 0.9?
+Y_Z_0 = baseline + annual_change, # we have an absolute change rather than a rate of change; business as usual scenario
+Y_Z_1 = baseline + annual_change + 0.1) # treatment effect = whatever is additional to idiosyncratic changes ; we're saying 10% more sustainable seafood will be sold
+# what is the minimum value where you still get a power of 0.8 
 po <- potential_outcomes(pop)
 
 
@@ -57,23 +60,23 @@ po <- potential_outcomes(pop)
 
 ## Potential outcomes descriptives 
 
-```{r}
-
-```{r po-see, echo=FALSE}
-kable(po[1:5,], digits=1)
-```
-
 ```{r po-check, echo=TRUE}
-mean(po$baseline)
-sd(po$baseline) # want this to match your baseline distribution?
+mean(po$baseline) # mean increase of ~0.23
+sd(po$baseline) # SD = 0.07, small amount of between-store variation
 
 ```
 
 
 ## Declare sample size
+How many units are you actually going to bring into the study?
 ```{r}
-sampling <- declare_sampling(n=700) # again, is this the treatment group or the total number of samples?
-sam <- sampling(po)
+sampling <- declare_sampling(n=140) 
+sam <- sampling(po) # outcome of the function
+
+# if your power is high enough, you could reduce N to reduce impact on RL
+
+# you can advise them on what is the optimal sample size to get sufficient power
+
 ```
 
 
@@ -83,8 +86,6 @@ sam <- sampling(po)
 # Assign half the units to the treatment group
 assigning <- declare_assignment(prob=0.5)
 assigned <- assigning(sam)
-kable(assigned[1:5,c(1:2,4:5,7)],
-digits = 1)
 
 
 # Declare  how the potential outcomes are revealed by the random assignment
@@ -100,11 +101,10 @@ revealing <- declare_reveal()
 # what is our target treatment effect?
 
 estimand <- declare_estimand(
-prop.change = mean((Y_Z_1-Y_Z_0)/baseline))
-estimand(po) # 10% decrease in WQI in this example
+prop.change = mean(Y_Z_1-Y_Z_0)) # instead of normalizing by the baseline, look at store sales overall
+estimand(po) # matches our expected treatment effect of 10% increase in proportion of sustainable seafood bought
 
-# really not sure what this does... how does it incorporate desired treatment effect?
-dip <- declare_estimator(Y*(1/baseline) ~ Z,
+dip <- declare_estimator(Y ~ Z + baseline, # looking at difference in sales proportion by store controlling for baseline value of the store and removing inter-store variation
 estimand = estimand,
 model = lm_robust, label = "DIP")
 ```
@@ -115,15 +115,20 @@ design <- population + potential_outcomes + sampling +
 assigning + revealing + estimand + dip
 
 diagnosis <- diagnose_design(design)
-diagnosis$diagnosands_df[,c(1,3,5,9,11)] %>% # selecting only certain columns?
+diagnosis$diagnosands_df[,c(1,3,5,9,11)] %>%
 kable()
+
+diagnosis$diagnosands_df %>% 
+  kable()
+
+
+# table shows power and whether there is bias ; maybe we don't need all 700 samples
+# instead of treating half, they only want to treat 10% bc they want to be careful in rolling this out 
 
 # Visualize estimates 
 hist(diagnosis$simulations_df$estimate)
 
 ```
 
-## Levers
-### How do we know which one to use? Blocking or increase sample size? Should we just start with this initially in our design? 
 
 
